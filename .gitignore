@@ -1,0 +1,6 @@
+build/
+dist/
+pokeroll.spec
+.env
+*.log
+__pycache__/
