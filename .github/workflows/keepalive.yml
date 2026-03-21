@@ -1,0 +1,49 @@
+name: Keepalive Workflow
+
+on:
+  push:
+    paths:
+      - .github/workflows/keepalive.yml
+  schedule:
+    # Run monthly at 03:17 UTC, away from the top of the hour.
+    - cron: '17 3 1 * *'
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: write
+
+jobs:
+  keepalive:
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Re-enable the Discord workflow
+        run: |
+          curl -L \
+            -X PUT \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ github.token }}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/discord_message.yml/enable"
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Update keepalive marker
+        run: |
+          mkdir -p .github/keepalive
+          date -u +"%Y-%m-%dT%H:%M:%SZ" > .github/keepalive/last-run.txt
+
+      - name: Commit keepalive change
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/keepalive/last-run.txt
+          if git diff --cached --quiet; then
+            echo "No keepalive changes to commit."
+            exit 0
+          fi
+          git commit -m "chore: keep workflows active [skip ci]"
+          git push
